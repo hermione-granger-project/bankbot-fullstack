@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 interface ChatMessage {
   sender: "user" | "bot";
   content: string;
@@ -12,7 +14,10 @@ export default function Page() {
   const [messages, setMessages] = useState(chatData);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false); // Add loading state
-
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY; // Access the environment variable
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+  
   const handleSubmit = async () => {
     if (inputMessage.trim() !== "") {
       // Add user message to chat
@@ -27,25 +32,12 @@ export default function Page() {
       ]);
 
       try {
-        // Call your backend API here
-        const response = await fetch("https://bankbot-chats-wlrrn53vra-uc.a.run.app/v1/chats", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: inputMessage }),
-        });
+        const result = await model.generateContent(inputMessage);
+        const response = await result.response;
+        const botMessage = response.text(); 
 
-        if (!response.ok) {
-          throw new Error(`API request failed with status ${response.status}`);
-        }
-
-        const data = await response.json();
-        const botMessage = data.message; // Assuming your API returns a 'response' field
-
-        // Update the chat with the bot's response
         setMessages((prevMessages) => [
-          ...prevMessages.slice(0, -1), // Remove "bot is typing..."
+          ...prevMessages.slice(0, -1),
           { sender: "bot", content: botMessage },
         ]);
       } catch (error) {
@@ -66,7 +58,6 @@ export default function Page() {
       handleSubmit();
     }
   };
-
   return (
     <div className="flex h-screen antialiased text-gray-800 w-full">
       <div className="flex flex-row h-full w-full overflow-x-hidden">
